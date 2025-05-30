@@ -1,0 +1,153 @@
+// Bibliotecas para RFID
+#include <SPI.h>
+#include <MFRC522.h>
+
+// Bibliotecas para WiFi & MQTT
+#include <WiFi.h>
+#include <PubSubClient.h>
+
+// Definições dos Pinos do Leitor RFID MFRC522
+#define SS_PIN 5  // Pino SDA (SS) do MFRC522
+#define RST_PIN 17 // Pino de Reset do MFRC522
+MFRC522 mfrc522(SS_PIN, RST_PIN); // Cria a instância MFRC522
+
+// Credenciais da Rede Wi-Fi (substitua com as suas)
+char SSIDName[] = "SUA_REDE_WIFI"; // Nome da sua rede Wi-Fi
+char SSIDPass[] = "SUA_SENHA_WIFI"; // Senha da sua rede Wi-Fi
+
+// Detalhes do Broker MQTT
+char BrokerURL[] = "broker.hivemq.com"; // URL do broker MQTT (público para teste)
+char BrokerUserName[] = "";             // Usuário do broker (se houver)
+char BrokerPassword[] = "";             // Senha do broker (se houver)
+char MQTTClientName[] = "esp32-campus-entry-monitor"; // Nome do cliente MQTT (deve ser único)
+int BrokerPort = 1883;                  // Porta do broker MQTT
+
+// Tópicos MQTT para publicação
+char Topico_RFID_Entrada[] = "campus/entrada/uid";           // Tópico para o UID do cartão lido
+char Topico_Contagem_Sessao[] = "campus/entrada/contagem_sessao"; // Tópico para a contagem de entradas desde o boot
+
+// Objetos Wi-Fi e MQTT
+WiFiClient espClient;
+PubSubClient clienteMQTT(espClient);
+
+// Variável para contar as entradas desde que o ESP32 foi ligado
+unsigned long entryCountSinceBoot = 0;
+
+/**
+ * @brief Tenta (re)conectar ao broker MQTT.
+ */
+void mqttReconnect() {
+  while (!clienteMQTT.connected()) {
+    Serial.println("Conectando-se ao broker MQTT...");
+    if (clienteMQTT.connect(MQTTClientName, BrokerUserName, BrokerPassword)) {
+      Serial.println("Conectado ao broker MQTT!");
+    } else {
+      Serial.print("Falha na conexao MQTT, rc=");
+      Serial.print(clienteMQTT.state());
+      Serial.println(" Tentando novamente em 5 segundos.");
+      delay(5000);
+    }
+  }
+}
+
+/**
+ * @brief Configurações iniciais do ESP32.
+ */
+void setup() {
+  Serial.begin(9600);
+  delay(1000);
+
+  // Inicializa SPI e MFRC522
+  SPI.begin();
+  mfrc522.PCD_Init();
+  Serial.println("Leitor RFID MFRC522 inicializado para monitoramento de fluxo.");
+
+  // Conecta-se à rede Wi-Fi
+  Serial.print("Conectando-se ao Wi-Fi: ");
+  Serial.println(SSIDName);
+  WiFi.begin(SSIDName, SSIDPass);
+  int wifi_retries = 0;
+  while (WiFi.status() != WL_CONNECTED && wifi_retries < 30) {
+    delay(500);
+    Serial.print(".");
+    wifi_retries++;
+  }
+
+  if (WiFi.status() == WL_CONNECTED) {
+    Serial.println("\nConectado ao Wi-Fi!");
+    Serial.print("Endereco IP: ");
+    Serial.println(WiFi.localIP());
+    clienteMQTT.setServer(BrokerURL, BrokerPort);
+  } else {
+    Serial.println("\nFalha ao conectar no Wi-Fi. Tentativas de envio MQTT serao ignoradas.");
+  }
+
+  Serial.println("Aproxime o cartao para registrar entrada no campus...");
+  Serial.println();
+}
+
+/**
+ * @brief Loop principal do programa.
+ */
+void loop() {
+  if (WiFi.status() == WL_CONNECTED) {
+    if (!clienteMQTT.connected()) {
+      mqttReconnect();
+    }
+    clienteMQTT.loop();
+  }
+
+  // Procura por um novo cartão RFID
+  if (!mfrc522.PICC_IsNewCardPresent()) {
+    delay(50);
+    return;
+  }
+
+  // Seleciona um dos cartões RFID
+  if (!mfrc522.PICC_ReadCardSerial()) {
+    delay(50);
+    return;
+  }
+
+  entryCountSinceBoot++; // Incrementa o contador de entradas da sessão
+
+  // --- Processa e envia o UID do cartão RFID lido ---
+  String uidLidoStr = "";
+  Serial.print("UID da tag (Console):");
+  for (byte i = 0; i < mfrc522.uid.size; i++) {
+    // Para exibição no Serial Monitor com formatação
+    Serial.print(mfrc522.uid.uidByte[i] < 0x10 ? " 0" : " ");
+    Serial.print(mfrc522.uid.uidByte[i], HEX);
+
+    // Para a string a ser enviada via MQTT (formato "XX XX XX XX")
+    if (mfrc522.uid.uidByte[i] < 0x10) {
+      uidLidoStr.concat("0");
+    }
+    uidLidoStr.concat(String(mfrc522.uid.uidByte[i], HEX));
+    if (i < mfrc522.uid.size - 1) {
+      uidLidoStr.concat(" ");
+    }
+  }
+  Serial.println();
+  uidLidoStr.toUpperCase(); // Garante que o UID esteja em maiúsculas para MQTT
+
+  Serial.print("Entrada registrada para UID (MQTT): ");
+  Serial.println(uidLidoStr);
+  Serial.print("Total de entradas nesta sessao: ");
+  Serial.println(entryCountSinceBoot);
+
+  // Publica o UID e a contagem via MQTT (se conectado)
+  if (clienteMQTT.connected()) {
+    clienteMQTT.publish(Topico_RFID_Entrada, uidLidoStr.c_str());
+
+    char countPayload[10];
+    sprintf(countPayload, "%lu", entryCountSinceBoot);
+    clienteMQTT.publish(Topico_Contagem_Sessao, countPayload);
+  }
+
+  mfrc522.PICC_HaltA();      // Para a comunicação com a tag RFID
+  mfrc522.PCD_StopCrypto1(); // Para a criptografia no PCD (Leitor)
+
+  Serial.println("\nAguardando proximo cartao...");
+  delay(1000); // Aguarda um pouco antes da próxima leitura
+}
