@@ -1,0 +1,255 @@
+[
+    {
+        "id": "19f66ff5fe3721a7",
+        "type": "tab",
+        "label": "Flow 2",
+        "disabled": false,
+        "info": "",
+        "env": []
+    },
+    {
+        "id": "7e47bbfed3c7cfba",
+        "type": "mqtt in",
+        "z": "19f66ff5fe3721a7",
+        "name": "",
+        "topic": "GRUPO8BJMACK/alunos",
+        "qos": "2",
+        "datatype": "auto-detect",
+        "broker": "eeea7ff9d6d99c62",
+        "nl": false,
+        "rap": true,
+        "rh": 0,
+        "inputs": 0,
+        "x": 290,
+        "y": 380,
+        "wires": [
+            [
+                "360a2fed4d7ecd68"
+            ]
+        ]
+    },
+    {
+        "id": "360a2fed4d7ecd68",
+        "type": "function",
+        "z": "19f66ff5fe3721a7",
+        "name": "function 5",
+        "func": "\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 500,
+        "y": 420,
+        "wires": [
+            [
+                "982f553f9c80cfca",
+                "2cb97d6b73bcca93",
+                "7c46cf9106d80469",
+                "ce2b30a00c838553"
+            ]
+        ]
+    },
+    {
+        "id": "982f553f9c80cfca",
+        "type": "debug",
+        "z": "19f66ff5fe3721a7",
+        "name": "debug 9",
+        "active": true,
+        "tosidebar": true,
+        "console": true,
+        "tostatus": false,
+        "complete": "payload",
+        "targetType": "msg",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 1030,
+        "y": 620,
+        "wires": []
+    },
+    {
+        "id": "2cb97d6b73bcca93",
+        "type": "influxdb out",
+        "z": "19f66ff5fe3721a7",
+        "influxdb": "bc4e2085ca8fe303",
+        "name": "Alunos",
+        "measurement": "Alunos",
+        "precision": "",
+        "retentionPolicy": "",
+        "database": "database",
+        "precisionV18FluxV20": "ms",
+        "retentionPolicyV18Flux": "",
+        "org": "ad250462c4e68794",
+        "bucket": "Alunos",
+        "x": 890,
+        "y": 400,
+        "wires": []
+    },
+    {
+        "id": "d32410fc1a284f7a",
+        "type": "influxdb out",
+        "z": "19f66ff5fe3721a7",
+        "influxdb": "bc4e2085ca8fe303",
+        "name": "Semanas",
+        "measurement": "Semanas",
+        "precision": "",
+        "retentionPolicy": "",
+        "database": "database",
+        "precisionV18FluxV20": "ms",
+        "retentionPolicyV18Flux": "",
+        "org": "ad250462c4e68794",
+        "bucket": "Alunos",
+        "x": 940,
+        "y": 340,
+        "wires": []
+    },
+    {
+        "id": "7c46cf9106d80469",
+        "type": "function",
+        "z": "19f66ff5fe3721a7",
+        "name": "function 6",
+        "func": "const semanas = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'];\nconst d = new Date();\nlet dia = semanas[d.getDay()];\nmsg.payload = {\"dia\": dia, \"nome\": msg.payload['nome']};\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 640,
+        "y": 340,
+        "wires": [
+            [
+                "d32410fc1a284f7a",
+                "07b69f29fe52d70f"
+            ]
+        ]
+    },
+    {
+        "id": "07b69f29fe52d70f",
+        "type": "debug",
+        "z": "19f66ff5fe3721a7",
+        "name": "debug 10",
+        "active": true,
+        "tosidebar": true,
+        "console": true,
+        "tostatus": false,
+        "complete": "true",
+        "targetType": "full",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 850,
+        "y": 240,
+        "wires": []
+    },
+    {
+        "id": "942a51738d545742",
+        "type": "node-red-contrib-whatsapp-cmb-send-message",
+        "z": "19f66ff5fe3721a7",
+        "name": "Aviso web",
+        "credtype": "vars",
+        "account": "d70198d13b4b07d9",
+        "text": "payload['mensagem']",
+        "phonenumbervalue": "payload['numero']",
+        "apikeyvalue": "payload['api']",
+        "apikeyinputtypemessage": "msg",
+        "phonenumberinputtypemessage": "msg",
+        "inputtypemessage": "msg",
+        "rejectssl": false,
+        "x": 790,
+        "y": 640,
+        "wires": [
+            [
+                "c53edc961aea143e"
+            ]
+        ]
+    },
+    {
+        "id": "ce2b30a00c838553",
+        "type": "function",
+        "z": "19f66ff5fe3721a7",
+        "name": "function 7",
+        "func": "let d = new Date();\n\nlet aviso = \"Atenção o aluno \" + msg.payload['nome'] + \" passou na catraca às \" + d.getHours()+\"h\"+d.getMinutes() + \" no dia \" + d.getDate() +\"/\"+ (parseInt(d.getMonth()) + 1); \nmsg.payload = {'mensagem': aviso, \"numero\": msg.payload['numero'], \"api\": \"7147228\"};\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 620,
+        "y": 560,
+        "wires": [
+            [
+                "942a51738d545742"
+            ]
+        ]
+    },
+    {
+        "id": "c53edc961aea143e",
+        "type": "debug",
+        "z": "19f66ff5fe3721a7",
+        "name": "debug 11",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "payload",
+        "targetType": "msg",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 980,
+        "y": 680,
+        "wires": []
+    },
+    {
+        "id": "eeea7ff9d6d99c62",
+        "type": "mqtt-broker",
+        "name": "broker.hivemq.com",
+        "broker": "broker.hivemq.com",
+        "port": 1883,
+        "clientid": "",
+        "autoConnect": true,
+        "usetls": false,
+        "protocolVersion": 4,
+        "keepalive": 60,
+        "cleansession": true,
+        "autoUnsubscribe": true,
+        "birthTopic": "",
+        "birthQos": "0",
+        "birthRetain": "false",
+        "birthPayload": "",
+        "birthMsg": {},
+        "closeTopic": "",
+        "closeQos": "0",
+        "closeRetain": "false",
+        "closePayload": "",
+        "closeMsg": {},
+        "willTopic": "",
+        "willQos": "0",
+        "willRetain": "false",
+        "willPayload": "",
+        "willMsg": {},
+        "userProps": "",
+        "sessionExpiry": ""
+    },
+    {
+        "id": "bc4e2085ca8fe303",
+        "type": "influxdb",
+        "hostname": "https://us-east-1-1.aws.cloud2.influxdata.com",
+        "port": 8086,
+        "protocol": "http",
+        "database": "database",
+        "name": "Banco dos Alunos",
+        "usetls": false,
+        "tls": "",
+        "influxdbVersion": "2.0",
+        "url": "https://us-east-1-1.aws.cloud2.influxdata.com",
+        "timeout": 10,
+        "rejectUnauthorized": true
+    },
+    {
+        "id": "d70198d13b4b07d9",
+        "type": "node-red-contrib-whatsapp-cmb-account",
+        "name": "WhatsApp API Account"
+    }
+]
